@@ -1,0 +1,9 @@
+[package]
+name = "ori"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pest = "2.6"
+pest_derive = "2.6"
+proptest = "1.9.0"

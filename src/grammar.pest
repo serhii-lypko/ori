@@ -1,0 +1,22 @@
+// PEG is deterministic.
+
+Program = _{ SOI ~ Expr ~ EOF }
+
+Expr = { BinaryExpr | UnaryExpr | Term }
+
+BinaryExpr = { (UnaryExpr | Term) ~ (Operator ~ Term)+ }
+
+UnaryExpr = { Operator ~ Term }
+
+Term = { Int | "(" ~ Expr ~ ")" }
+
+Operator = { "+" | "-" | "*" }
+// Operator = { "➕" | "➖" }
+
+Int = @{ ASCII_DIGIT+ }
+
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+
+EOF = _{ EOI | ";" }
+
+// 10 + 12
