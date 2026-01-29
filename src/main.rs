@@ -17,14 +17,14 @@ use pest::iterators::Pair;
 #[grammar = "grammar.pest"]
 pub struct OriParser;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Operator {
     Plus,
     Minus,
     Multiply,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Node {
     Int(i32),
     UnaryExpr {
@@ -41,8 +41,8 @@ pub enum Node {
 
 fn main() {
     // let input = "12";
-    let input = "10 + 12 + 100";
-    // let input = "10 * (12 + 2)";
+    // let input = "10 + 12 + 100";
+    let input = "10 * (12 + 2)";
 
     let res = parse(input);
 
@@ -127,5 +127,46 @@ fn handle_operator(pair: Pair<Rule>) -> Operator {
         "-" => Operator::Minus,
         "*" => Operator::Multiply,
         _ => todo!(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_single_atom_parsing() {
+        let source = "25";
+        let expected = vec![Node::Int(25)];
+        let res = parse(source);
+        assert_eq!(expected, res);
+    }
+
+    #[test]
+    fn test_simple_binary_expr_parsing() {
+        let source = "10 + 5";
+        let expected = vec![Node::BinaryExpr {
+            op: Operator::Plus,
+            lhs: Box::new(Node::Int(10)),
+            rhs: Box::new(Node::Int(5)),
+        }];
+        let res = parse(source);
+        assert_eq!(expected, res);
+    }
+
+    #[test]
+    fn test_chained_binary_expr_parsing() {
+        let source = "10 + 5 + 11";
+        let expected = vec![Node::BinaryExpr {
+            op: Operator::Plus,
+            lhs: Box::new(Node::BinaryExpr {
+                op: Operator::Plus,
+                lhs: Box::new(Node::Int(10)),
+                rhs: Box::new(Node::Int(5)),
+            }),
+            rhs: Box::new(Node::Int(11)),
+        }];
+        let res = parse(source);
+        assert_eq!(expected, res);
     }
 }
