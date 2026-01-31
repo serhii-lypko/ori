@@ -13,20 +13,43 @@ use pest::iterators::Pair;
     character range that caused the problem.
 */
 
+// Rules used within the definition of other rules to eventually build
+// a parser that understands complex input
 #[derive(pest_derive::Parser)]
 #[grammar = "grammar.pest"]
 pub struct OriParser;
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Operator {
     Plus,
     Minus,
     Multiply,
 }
 
+impl From<Operator> for &str {
+    fn from(value: Operator) -> Self {
+        match value {
+            Operator::Plus => "+",
+            Operator::Minus => "-",
+            Operator::Multiply => "*",
+        }
+    }
+}
+
+impl From<&str> for Operator {
+    fn from(value: &str) -> Self {
+        match value {
+            "+" => Operator::Plus,
+            "-" => Operator::Minus,
+            "*" => Operator::Multiply,
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Node {
-    Int(i32),
+    Int(i64),
     UnaryExpr {
         op: Operator,
         child: Box<Node>,
@@ -42,15 +65,16 @@ pub enum Node {
 fn main() {
     // let input = "12";
     // let input = "10 + 12 + 100";
-    let input = "10 * (12 + 2)";
+    // let input = "10 * (12 + 2)";
+
+    let input = "10 + 5 - -3";
 
     let res = parse(input);
 
-    dbg!(res);
+    dbg!(res.unwrap());
 }
 
-// pub fn parse(source: &str) -> std::result::Result<Vec<Node>, pest::error::Error<Rule>> {
-pub fn parse(source: &str) -> Vec<Node> {
+pub fn parse(source: &str) -> std::result::Result<Vec<Node>, pest::error::Error<Rule>> {
     let mut ast = vec![];
     let pairs = OriParser::parse(Rule::Program, source).unwrap();
 
@@ -60,7 +84,7 @@ pub fn parse(source: &str) -> Vec<Node> {
         }
     }
 
-    ast
+    Ok(ast)
 }
 
 // TODO -> fix unwraps
@@ -74,15 +98,12 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> Node {
         Rule::Expr => build_ast_from_expr(pair.into_inner().next().unwrap()),
 
         Rule::BinaryExpr => {
-            println!("It's a BinaryExpr");
-
             let mut inner = pair.into_inner();
 
-            // TODO -> handle unary
             let mut lhs = build_ast_from_expr(inner.next().unwrap());
 
             while let Some(operator_pair) = inner.next() {
-                let op = handle_operator(operator_pair);
+                let op = operator_pair.as_str().into();
                 let rhs = build_ast_from_expr(inner.next().unwrap());
 
                 lhs = Node::BinaryExpr {
@@ -94,38 +115,31 @@ fn build_ast_from_expr(pair: Pair<Rule>) -> Node {
 
             lhs
         }
-        Rule::UnaryExpr => unimplemented!(),
+        Rule::UnaryExpr => {
+            let mut inner = pair.into_inner();
+
+            let operator = inner.next().unwrap();
+            let rhs_val = build_ast_from_expr(inner.next().unwrap());
+
+            Node::UnaryExpr {
+                op: operator.as_str().into(),
+                child: Box::new(rhs_val),
+            }
+        }
         Rule::Term => {
-            println!("It's a Term");
             let inner = pair.into_inner().next().unwrap();
 
             match inner.as_rule() {
                 Rule::Int => {
-                    let int: i32 = inner.as_str().parse().unwrap();
+                    let int: i64 = inner.as_str().parse().unwrap();
                     return Node::Int(int);
                 }
-                _ => {
-                    // TODO -> handle Expr:
-                    // Term = { Int | "(" ~ Expr ~ ")" }
-
-                    unimplemented!()
-                }
+                _ => build_ast_from_expr(inner),
             }
         }
-        Rule::Operator => todo!(),
 
-        Rule::WHITESPACE => todo!(),
+        Rule::WHITESPACE => Node::None,
         Rule::EOF => todo!(),
-        _ => todo!(),
-    }
-}
-
-// TODO -> return Result
-fn handle_operator(pair: Pair<Rule>) -> Operator {
-    match pair.as_str() {
-        "+" => Operator::Plus,
-        "-" => Operator::Minus,
-        "*" => Operator::Multiply,
         _ => todo!(),
     }
 }
@@ -134,11 +148,13 @@ fn handle_operator(pair: Pair<Rule>) -> Operator {
 mod tests {
     use super::*;
 
+    // TODO -> tests for unary
+
     #[test]
     fn test_single_atom_parsing() {
         let source = "25";
         let expected = vec![Node::Int(25)];
-        let res = parse(source);
+        let res = parse(source).unwrap();
         assert_eq!(expected, res);
     }
 
@@ -150,7 +166,7 @@ mod tests {
             lhs: Box::new(Node::Int(10)),
             rhs: Box::new(Node::Int(5)),
         }];
-        let res = parse(source);
+        let res = parse(source).unwrap();
         assert_eq!(expected, res);
     }
 
@@ -166,7 +182,93 @@ mod tests {
             }),
             rhs: Box::new(Node::Int(11)),
         }];
-        let res = parse(source);
+        let res = parse(source).unwrap();
         assert_eq!(expected, res);
+    }
+}
+
+/*
+    - prop_map: Strategy<A> → (A → B) → Strategy<B>
+    Takes strategy producing A, closure transforms value A to value B, returns strategy producing B
+    Use case: Transform values (convert u32 to String, build struct from tuple)
+
+    - prop_flat_map: Strategy<A> → (A → Strategy<B>) → Strategy<B>
+    Takes strategy producing A, closure transforms value A to strategy producing B, returns strategy producing B
+    Use case: Generate dependent values (range depends on previous value, second value's strategy depends on first value)
+*/
+#[cfg(test)]
+mod prop_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    // 3 + 5 - 7
+
+    // test_basic_expression_parsed
+
+    // test nested_expression_parsed
+
+    fn vec_and_index() -> impl Strategy<Value = (Vec<String>, usize)> {
+        prop::collection::vec(".*", 1..100).prop_flat_map(|vec| {
+            let len = vec.len();
+
+            // NOTE: 0..len would not work without producing new Strategy. Hence -> prop_flat_map
+            (Just(vec), 0..len)
+        })
+    }
+
+    fn operator() -> impl Strategy<Value = Operator> {
+        prop_oneof![
+            Just(Operator::Plus),
+            Just(Operator::Minus),
+            Just(Operator::Multiply),
+        ]
+        .boxed()
+    }
+
+    fn arithmetic_expr_2() -> impl Strategy<Value = String> {
+        let num = any::<i64>();
+        let op = operator();
+
+        prop::collection::vec("", 1..10).prop_map(|val| {
+            //
+
+            "".to_string()
+        })
+    }
+
+    fn arithmetic_expr() -> impl Strategy<Value = String> {
+        use proptest::prelude::*;
+
+        let num = any::<i64>();
+
+        // TODO -> what's the difference?
+        let op = prop_oneof![Just("+"), Just("-"), Just("*")];
+        // let op2 = operator();
+
+        (num, prop::collection::vec((op, num), 0..5)).prop_map(|(first, rest)| {
+            let mut s = first.to_string();
+            for (op, num) in rest {
+                s.push_str(&format!(" {} {}", op, num));
+            }
+            s
+        })
+    }
+
+    // fn gen_two_map() -> impl Strategy<Value = (i32, i32)> {
+    //     (1..65536).prop_flat_map(|a| (Just(a), 0..a))
+    // }
+
+    // fn foo_bar_strategy() -> impl Strategy<Value = String> {
+    //     proptest::string::string_regex("[a-z]+( [a-z]+)*").unwrap()
+    // }
+
+    proptest! {
+        #[test]
+        fn parses_valid_arithmetics(expr_str in arithmetic_expr()) {
+            // dbg!(expr_str);
+
+            let parsed = parse(&expr_str);
+            prop_assert!(parsed.is_ok());
+        }
     }
 }

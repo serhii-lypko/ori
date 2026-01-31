@@ -4,15 +4,17 @@ Program = _{ SOI ~ Expr ~ EOF }
 
 Expr = { BinaryExpr | UnaryExpr | Term }
 
-BinaryExpr = { (UnaryExpr | Term) ~ (Operator ~ Term)+ }
+BinaryExpr = { (UnaryExpr | Term) ~ (Operator ~ (UnaryExpr | Term))+ }
 
 UnaryExpr = { Operator ~ Term }
 
 Term = { Int | "(" ~ Expr ~ ")" }
 
 Operator = { "+" | "-" | "*" }
-// Operator = { "➕" | "➖" }
 
+// Atomic rules (@) do not accept whitespace or comments within their expressions and have
+// a cascading effect on any rule they call. I.e. rules that are not atomic but are
+// called by atomic rules behave atomically.
 Int = @{ ASCII_DIGIT+ }
 
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
