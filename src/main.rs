@@ -73,32 +73,47 @@ pub enum Node {
     None,
 }
 
-fn main() {
-    // let input = "12";
-    // let input = "10 + 12";
-    let input = "10 * (12 + -2)";
+pub(crate) trait Compile {
+    type Output;
 
-    // let input = "10 + 5 - 6";
-    // let input = "10 + (5 - 6)";
+    fn from_ast(node: Node) -> Self::Output;
 
-    let res = parse(input).unwrap();
-    let res_node = res[0].clone();
+    // TODO -> fix unwraps and handle Result
+    fn from_source(src: &str) -> Self::Output {
+        let res = parse(src).unwrap();
+        let res_node = res[0].clone();
 
-    let eval_res = eval(res_node);
-
-    dbg!(eval_res);
+        Self::from_ast(res_node)
+    }
 }
 
-fn eval(node: Node) -> i64 {
+struct TreeWalkInterpreter;
+
+impl Compile for TreeWalkInterpreter {
+    type Output = i64;
+
+    fn from_ast(node: Node) -> Self::Output {
+        eval_tree_walk(node)
+    }
+}
+
+fn main() {
+    let src = "10 * (12 + -2)";
+
+    let res = TreeWalkInterpreter::from_source(src);
+    dbg!(res);
+}
+
+fn eval_tree_walk(node: Node) -> i64 {
     match node {
         Node::Int(value) => value,
         Node::UnaryExpr { op, child } => {
-            let val_res = eval(*child);
+            let val_res = eval_tree_walk(*child);
             eval_unary(op, val_res)
         }
         Node::BinaryExpr { op, lhs, rhs } => {
-            let lhs_val = eval(*lhs);
-            let rhs_val = eval(*rhs);
+            let lhs_val = eval_tree_walk(*lhs);
+            let rhs_val = eval_tree_walk(*rhs);
             eval_arithmetics(op, lhs_val, rhs_val)
         }
         Node::None => 0,
