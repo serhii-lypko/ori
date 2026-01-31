@@ -2,6 +2,17 @@ use pest::Parser;
 use pest::iterators::Pair;
 
 /*
+    Implementation plan
+
+    - [ ] Tree-Walk interpreter
+    - [ ] JIT compiler
+    - [ ] Bytecode machine
+
+    - [ ] Benchmarking
+    - [ ] Layered cache with scheduling strategies
+*/
+
+/*
     About spans in parse tree:
 
     When walking parse tree and building an AST or doing semantic analysis,
@@ -47,7 +58,7 @@ impl From<&str> for Operator {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Node {
     Int(i64),
     UnaryExpr {
@@ -64,14 +75,50 @@ pub enum Node {
 
 fn main() {
     // let input = "12";
-    // let input = "10 + 12 + 100";
-    // let input = "10 * (12 + 2)";
+    // let input = "10 + 12";
+    let input = "10 * (12 + -2)";
 
-    let input = "10 + 5 - -3";
+    // let input = "10 + 5 - 6";
+    // let input = "10 + (5 - 6)";
 
-    let res = parse(input);
+    let res = parse(input).unwrap();
+    let res_node = res[0].clone();
 
-    dbg!(res.unwrap());
+    let eval_res = eval(res_node);
+
+    dbg!(eval_res);
+}
+
+fn eval(node: Node) -> i64 {
+    match node {
+        Node::Int(value) => value,
+        Node::UnaryExpr { op, child } => {
+            let val_res = eval(*child);
+            eval_unary(op, val_res)
+        }
+        Node::BinaryExpr { op, lhs, rhs } => {
+            let lhs_val = eval(*lhs);
+            let rhs_val = eval(*rhs);
+            eval_arithmetics(op, lhs_val, rhs_val)
+        }
+        Node::None => 0,
+    }
+}
+
+fn eval_unary(op: Operator, value: i64) -> i64 {
+    match op {
+        Operator::Plus => value,
+        Operator::Minus => -value,
+        Operator::Multiply => unreachable!(),
+    }
+}
+
+fn eval_arithmetics(op: Operator, lhs: i64, rhs: i64) -> i64 {
+    match op {
+        Operator::Plus => lhs + rhs,
+        Operator::Minus => lhs - rhs,
+        Operator::Multiply => lhs * rhs,
+    }
 }
 
 pub fn parse(source: &str) -> std::result::Result<Vec<Node>, pest::error::Error<Rule>> {
