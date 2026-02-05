@@ -1,10 +1,13 @@
 use pest::Parser;
 use pest::iterators::Pair;
 
+mod backends;
+use backends::VM;
+
 /*
     Implementation plan
 
-    - [ ] Tree-Walk interpreter
+    - [x] Tree-Walk interpreter
     - [ ] JIT compiler
     - [ ] Bytecode machine
 
@@ -23,6 +26,17 @@ use pest::iterators::Pair;
     When parsing fails or validation errors occur, I can point to the exact
     character range that caused the problem.
 */
+
+fn main() {
+    // let src = "10 * (12 + -2)";
+    let src = "2 + 3";
+
+    // let res = TreeWalkInterpreter::from_source(src);
+    // dbg!(res);
+
+    let res = VM::from_source(src);
+    // dbg!(res);
+}
 
 // Rules used within the definition of other rules to eventually build
 // a parser that understands complex input
@@ -97,13 +111,6 @@ impl Compile for TreeWalkInterpreter {
     }
 }
 
-fn main() {
-    let src = "10 * (12 + -2)";
-
-    let res = TreeWalkInterpreter::from_source(src);
-    dbg!(res);
-}
-
 fn eval_tree_walk(node: Node) -> i64 {
     match node {
         Node::Int(value) => value,
@@ -136,6 +143,10 @@ fn eval_arithmetics(op: Operator, lhs: i64, rhs: i64) -> i64 {
     }
 }
 
+/* -- -- -- -- -- -- -- -- Parsing -- -- -- -- -- -- -- -- */
+
+// It's critical to entirely separate parsing & AST creation from evaluation
+
 pub fn parse(source: &str) -> std::result::Result<Vec<Node>, pest::error::Error<Rule>> {
     let mut ast = vec![];
     let pairs = OriParser::parse(Rule::Program, source).unwrap();
@@ -150,12 +161,12 @@ pub fn parse(source: &str) -> std::result::Result<Vec<Node>, pest::error::Error<
 }
 
 // TODO -> fix unwraps
-// Pair<Rule> represents one matched grammar rule
 fn build_ast_from_expr(pair: Pair<Rule>) -> Node {
+    // Pair<Rule> represents one matched grammar rule
+
     // `as_rule()` extracts which grammar rule this pair matched, returning a Rule enum value
     // `inner()` returns another Pairs<Rule> iterator containing the nested matches
 
-    // 10 + 12 + 100
     match pair.as_rule() {
         Rule::Expr => build_ast_from_expr(pair.into_inner().next().unwrap()),
 
