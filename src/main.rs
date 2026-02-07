@@ -5,17 +5,6 @@ mod backends;
 use backends::VM;
 
 /*
-    Implementation plan
-
-    - [x] Tree-Walk interpreter
-    - [ ] JIT compiler
-    - [ ] Bytecode machine
-
-    - [ ] Benchmarking
-    - [ ] Layered cache with scheduling strategies
-*/
-
-/*
     About spans in parse tree:
 
     When walking parse tree and building an AST or doing semantic analysis,
@@ -29,13 +18,20 @@ use backends::VM;
 
 fn main() {
     // let src = "10 * (12 + -2)";
-    let src = "2 + 3";
+    // let src = "2 + 3 - 4";
+
+    let src = "2 + (3 - 8)";
+    // let src = "11 - 8";
 
     // let res = TreeWalkInterpreter::from_source(src);
     // dbg!(res);
 
     let res = VM::from_source(src);
-    // dbg!(res);
+
+    // println!("{:016b}", bar);
+
+    // TODO -> how to construct in a way like this?
+    // let v: u16 = vec![left, right].into();
 }
 
 // Rules used within the definition of other rules to eventually build

@@ -20,7 +20,7 @@ impl From<OpCode> for Vec<u8> {
     fn from(op_code: OpCode) -> Self {
         match op_code {
             OpCode::OpConstant(const_index) => {
-                // Address space of the constants is encoded into two bytes
+                // Address space of the constants indexes is encoded into two bytes
                 vec![0x01, (const_index >> 8) as u8, const_index as u8]
             }
             OpCode::OnPop => vec![0x02],
@@ -29,4 +29,11 @@ impl From<OpCode> for Vec<u8> {
             OpCode::OpMul => vec![0x05],
         }
     }
+}
+
+pub(super) fn build_const_address(l: u8, r: u8) -> u16 {
+    let left_shifted = (l as u16) << 8;
+    let complete_address = left_shifted | (r as u16);
+
+    complete_address
 }
